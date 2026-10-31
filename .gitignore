@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+out/
+*.pak
+*.dll
+*.dat
+*.exe
+*.zip
+LICENSES.chromium.html
