@@ -13,7 +13,7 @@ import path from 'node:path'
  *
  * ```
  * Error: Failed to write Minecraft manifest: EPERM: operation not permitted, open
- *   'C:\Users\...\AppData\Roaming\.voxellauncher\versions\fabric-loader-0.20.1-26.3\...json'
+ *   'C:\Users\...\AppData\Roaming\.minecraft\versions\fabric-loader-0.20.1-26.3\...json'
  *   at FileManager.getLibraries (lib/launcher/filemanager.js:87)
  * ```
  *

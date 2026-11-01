@@ -25,7 +25,7 @@ import { friendlyError } from './fetcher.js'
 import fs from 'node:fs'
 import { redactSensitive } from './redact.js'
 
-export const GAME_ROOT_NAME = 'VoxelLauncher'
+export const GAME_ROOT_NAME = 'minecraft'
 
 const TYPE_LABELS = {
   JAVA: 'Java 运行时',
@@ -659,7 +659,7 @@ export class GameService {
     // launch arguments) reads `launcher.config.root`.
     launcher.config.root = this.gameDir
     // Isolated instances must not write `/versions/<id>/<id>.json` relative to the launcher profile
-    // folder (`%APPDATA%\.voxellauncher`), which failed with EPERM; point the cache copy at the
+    // folder (`%APPDATA%\.minecraft`), which failed with EPERM; point the cache copy at the
     // writable game directory and give authlib-injector a directory to unpack into.
     launcher.config.versionsCacheDir = path.join(this.gameDir, 'cache')
     // eml-lib may only download; the process is spawned by our own launcher (see ownLaunch).

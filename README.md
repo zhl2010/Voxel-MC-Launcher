@@ -86,11 +86,11 @@ npm run devtools
 
 默认情况下，游戏安装在应用数据目录下名为 `VoxelLauncher` 的根目录中：
 
-- Windows：`%APPDATA%\.voxellauncher`
-- macOS：`~/Library/Application Support/voxellauncher`
-- Linux：`~/.voxellauncher`
+- Windows：`%APPDATA%\.minecraft`
+- macOS：`~/Library/Application Support/minecraft`
+- Linux：`~/.minecraft`
 
-- 默认模组文件夹：`%APPDATA%\.voxellauncher\mods`（macOS / Linux 对应游戏目录下的 `mods`）
+- 默认模组文件夹：`%APPDATA%\.minecraft\mods`（macOS / Linux 对应游戏目录下的 `mods`）
 
 启动器自己的配置和版本清单缓存位于 Electron 的 `userData` 目录，这个目录不随游戏目录移动。登录会话保存在 `userData/account-session.json`，优先使用 Electron `safeStorage` 加密（Windows 使用 DPAPI）；离线用户名、设置项、游戏目录和 Java 路径也都会持久化。导入的 PCL 实例默认放在 `userData/instances/` 下。可在「启动设置 → 存储位置」直接打开游戏目录、模组目录或日志目录。
 
@@ -131,7 +131,7 @@ eml-lib 2.7.4 有三处会直接导致本地版本启动失败的行为，启动
 1. **丢弃 `manifestUrl`**：`Launcher.setMinecraft()` 与 `loader.updateMinecraftConfig()` 对 vanilla 加载器会丢掉 `manifestUrl`，随后 `getMinecraftManifestUrl()` 拿实例名（如 `1.12.2-Forge_14.23.5`）去查 Mojang 清单，报 `not found in manifest`。补丁让它们保留 `manifestUrl`，并让 `getMinecraftManifestUrl()` 对任意加载器优先返回它；Forge / NeoForge 在使用本地 manifest 时跳过 installer 读取。
 2. **无超时的 HEAD 探测**：`getRemoteFileSize()` / `getRemoteFileSha1()` 没有超时，直连 Maven 时会长时间卡住。补丁加 10 秒硬超时并改用镜像探测。
 3. **缺少 `--userProperties`**：eml-lib 用账户的 `userProperties` 渲染 `${user_properties}`，离线账户为空时该参数会被丢掉，而 1.7.10–1.12.2 的 `Main` 要求它是必填项，游戏会以 `MissingRequiredOptionException` 退出。补丁在参数里补齐 `--userProperties {}`。
-4. **版本缓存写入失败会中断启动**：`FileManager.getLibraries()` / `getLoaderLibraries()` 每次都往 `<root>/versions/<id>/<id>.json` 写一份副本，写不进去就抛 `Failed to write Minecraft manifest: EPERM ...`。isolated 实例的 `root` 会解析到启动器配置目录（`%APPDATA%\.voxellauncher`），该写入可能被锁或被安全软件拦截。处理方式：
+4. **版本缓存写入失败会中断启动**：`FileManager.getLibraries()` / `getLoaderLibraries()` 每次都往 `<root>/versions/<id>/<id>.json` 写一份副本，写不进去就抛 `Failed to write Minecraft manifest: EPERM ...`。isolated 实例的 `root` 会解析到启动器配置目录（`%APPDATA%\.minecraft`），该写入可能被锁或被安全软件拦截。处理方式：
    - `FileManager` 打补丁：写入失败只记一条 WARN（`版本缓存写入失败，已跳过并继续启动：...`），启动继续；
    - isolated 启动时把 `root` 重定向到 `<gameDir>/cache`，版本副本写到 `<gameDir>/cache/versions/`，不再碰系统 AppData。
 
