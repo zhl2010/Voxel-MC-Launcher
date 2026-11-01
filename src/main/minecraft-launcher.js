@@ -483,21 +483,36 @@ function authServer(account) {
 
 /** Extract a native jar (stored or deflated entries) into `<gameDir>/bin/<id>`. */
 function extractNatives(jarPath, targetDirectory) {
-  const buffer = fs.readFileSync(jarPath)
-  let offset = 0
-  while (offset + 30 <= buffer.length && buffer.readUInt32LE(offset) === 0x04034b50) {
-    const method = buffer.readUInt16LE(offset + 8)
-    const size = buffer.readUInt32LE(offset + 18)
-    const nameLength = buffer.readUInt16LE(offset + 26)
-    const extraLength = buffer.readUInt16LE(offset + 28)
-    const nameStart = offset + 30
-    const name = buffer.toString('utf8', nameStart, nameStart + nameLength)
-    const dataStart = nameStart + nameLength + extraLength
-    const data = buffer.subarray(dataStart, dataStart + size)
-    offset = dataStart + size
-    if (!name || name.endsWith('/') || name.startsWith('META-INF/')) continue
-    const target = path.join(targetDirectory, path.basename(name))
-    fs.writeFileSync(target, method === 8 ? zlib.inflateRawSync(data) : data)
+  // Re-extracting the same native jar on every launch is wasted IO (it can reach tens of
+  // thousands of small files for heavy modpacks). A marker records the jar's mtime/size so the
+  // extraction is skipped unless the jar actually changed.
+  const marker = path.join(targetDirectory, `.natives-${path.basename(jarPath)}.done`)
+  try {
+    const stat = fs.statSync(jarPath)
+    try {
+      if (fs.readFileSync(marker, 'utf8') === `${stat.mtimeMs}:${stat.size}`) return
+    } catch {
+      // No marker yet: extract.
+    }
+    const buffer = fs.readFileSync(jarPath)
+    let offset = 0
+    while (offset + 30 <= buffer.length && buffer.readUInt32LE(offset) === 0x04034b50) {
+      const method = buffer.readUInt16LE(offset + 8)
+      const size = buffer.readUInt32LE(offset + 18)
+      const nameLength = buffer.readUInt16LE(offset + 26)
+      const extraLength = buffer.readUInt16LE(offset + 28)
+      const nameStart = offset + 30
+      const name = buffer.toString('utf8', nameStart, nameStart + nameLength)
+      const dataStart = nameStart + nameLength + extraLength
+      const data = buffer.subarray(dataStart, dataStart + size)
+      offset = dataStart + size
+      if (!name || name.endsWith('/') || name.startsWith('META-INF/')) continue
+      const target = path.join(targetDirectory, path.basename(name))
+      fs.writeFileSync(target, method === 8 ? zlib.inflateRawSync(data) : data)
+    }
+    fs.writeFileSync(marker, `${stat.mtimeMs}:${stat.size}`)
+  } catch {
+    // Extraction failure is not fatal here: Java reports missing natives at launch.
   }
 }
 

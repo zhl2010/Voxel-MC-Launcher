@@ -61,6 +61,29 @@ function withTimeout(promise, milliseconds, message) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
 }
 
+/**
+ * Count how many of the given files exist with a matching size, checking in parallel.
+ * Used to scan thousands of asset objects quickly before deciding whether a download is needed.
+ */
+async function countExisting(entries, concurrency = 64) {
+  let present = 0
+  const queue = [...entries]
+  const worker = async () => {
+    while (queue.length > 0) {
+      const entry = queue.shift()
+      if (!entry) continue
+      try {
+        const stat = fs.statSync(entry.target)
+        if (!entry.size || stat.size === entry.size) present += 1
+      } catch {
+        // Missing: not counted.
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.max(1, concurrency) }, worker))
+  return present
+}
+
 function isInstanceModArchive(name) {
   // PCL stores `mods/<fileName>` (sometimes `mods/<sub>/<fileName>`). Those archives are for Forge
   // to load, not for the JVM classpath.
@@ -1011,17 +1034,17 @@ export class GameService {
     }
     const objects = Object.values(index.objects)
     const total = objects.length
-    let present = 0
+    // Scanning several thousand asset objects serially with statSync stalls every launch; the
+    // existence/size check is stat-heavy but parallelises well, so run it with a small pool.
+    const checks = []
     for (const asset of objects) {
       if (!asset?.hash) continue
-      const target = path.join(this.gameDir, 'assets', 'objects', asset.hash.slice(0, 2), asset.hash)
-      try {
-        const stat = fs.statSync(target)
-        if (!asset.size || stat.size === asset.size) present += 1
-      } catch {
-        // Missing: counted as not present.
-      }
+      checks.push({
+        target: path.join(this.gameDir, 'assets', 'objects', asset.hash.slice(0, 2), asset.hash),
+        size: asset.size || 0
+      })
     }
+    const present = await countExisting(checks)
     if (present >= total) {
       this.log('INFO', `游戏资源已完整（${present}/${total}）`)
       return true

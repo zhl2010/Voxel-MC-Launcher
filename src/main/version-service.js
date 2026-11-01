@@ -250,6 +250,11 @@ export class VersionService {
   async isOfficialVersion(id) {
     if (this.cache?.versions?.some((version) => version.id === id)) return true
     if (this.diskCache?.versions?.some((version) => version.id === id)) return true
+    // A local `versions/<id>/<id>.json` means this exact version is installed. Treat it as a local
+    // version without a network round-trip: loader instances (1.21.1-forge-52.1.20, ...-fabric-...)
+    // are never in the official manifest, so asking the network on every launch made starting a
+    // game wait for the manifest fetch (10s timeout, retries) even though the files are on disk.
+    if (this.getLocalVersion(id)) return false
     try {
       const data = await fetchJson(MANIFEST_URL, { timeout: 10_000, retries: 2 })
       return Boolean(data?.versions?.some((version) => version.id === id))
