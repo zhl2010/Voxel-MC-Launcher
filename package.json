@@ -1,7 +1,7 @@
 {
     "name":  "voxel-launcher",
     "productName":  "Voxel Launcher",
-    "version":  "1.1.0-beta.1",
+    "version":  "1.2.0",
     "description":  "A polished Minecraft Java Edition launcher built with Electron, HTML and eml-lib.",
     "type":  "module",
     "main":  "src/main.js",
