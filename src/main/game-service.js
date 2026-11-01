@@ -709,7 +709,8 @@ export class GameService {
       settings,
       javaPath: javaChoice.path,
       manifestPromise,
-      loaderLabel
+      loaderLabel,
+      baseVersion
     })
 
     return {
@@ -730,7 +731,7 @@ export class GameService {
    * eml-lib. eml-lib is still used, but only for the pieces it is good at (downloading missing
    * files through its Downloader); its `Launcher.launch()` state machine is no longer involved.
    */
-  ownLaunch({ launcher, settings, javaPath, manifestPromise, loaderLabel }) {
+  ownLaunch({ launcher, settings, javaPath, manifestPromise, loaderLabel, baseVersion = '' }) {
     const startedAt = Date.now()
     const step = (label) => this.log('INFO', `[ownLaunch] ${label}`)
     const build = (manifest, agentDirectory) =>
@@ -742,7 +743,8 @@ export class GameService {
         javaPath,
         account: this.account,
         settings,
-        agentDirectory
+        agentDirectory,
+        baseVersion
       })
     const run = async () => {
       step(`准备进入下载/启动流程：${settings.version}（${loaderLabel}）`)
@@ -930,7 +932,9 @@ export class GameService {
     if (!manifest) throw new Error(`无法读取版本 ${versionId} 的 JSON，请检查版本目录。`)
 
     log('INFO', `开始校验 ${versionId} 的游戏文件…`)
-    let report = verifyGameFiles(versionId, { gameDir: this.gameDir, manifest, assetIndex, categories })
+    const local = this.versions?.getLocalVersion?.(versionId)
+    const baseVersion = local?.metadata?.baseVersion || ''
+    let report = verifyGameFiles(versionId, { gameDir: this.gameDir, manifest, assetIndex, baseVersion, categories })
     log(
       'INFO',
       `校验结果：完整 ${report.summary.ok} 个，缺失 ${report.summary.missing} 个，损坏 ${report.summary.corrupt} 个`
@@ -943,8 +947,8 @@ export class GameService {
     let repaired = 0
     // 1. Client jar.
     if (report.clientJar.state !== 'ok') {
-      log('INFO', `修补客户端 jar：${versionId}.jar（${report.clientJar.state}）`)
-      const client = await downloadClientJar(manifest, this.gameDir, { id: versionId })
+      log('INFO', `修补客户端 jar：${(baseVersion || versionId)}.jar（${report.clientJar.state}）`)
+      const client = await downloadClientJar(manifest, this.gameDir, { id: baseVersion || versionId })
       if (client.ok) repaired += 1
       else log('WARN', `客户端 jar 修补失败：${client.error}`)
     }
@@ -983,7 +987,7 @@ export class GameService {
     }
 
     // 4. Verify again so the log reports the real state.
-    report = verifyGameFiles(versionId, { gameDir: this.gameDir, manifest, assetIndex, categories })
+    report = verifyGameFiles(versionId, { gameDir: this.gameDir, manifest, assetIndex, baseVersion, categories })
     const remaining = report.summary.missing + report.summary.corrupt
     log(
       'INFO',

@@ -2224,6 +2224,22 @@ svg {
   white-space: nowrap;
 }
 
+.loader-install-action {
+  display: inline-block;
+  margin-top: 2px;
+  align-self: flex-start;
+  color: var(--accent, #81c784);
+  font-size: 0.4375rem;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  opacity: 0.9;
+}
+
+.loader-option:hover .loader-install-action {
+  opacity: 1;
+}
+
 .loader-error {
   grid-column: 1 / -1;
   margin: 2px 0 0;

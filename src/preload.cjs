@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('voxel', {
   getInfo: () => invoke('app:info'),
   getVersions: (force = false) => invoke('versions:list', force),
   getLoaders: (mcVersion) => invoke('loaders:list', mcVersion),
+  installLoader: (payload) => invoke('loader:install', payload),
   saveSettings: (patch) => invoke('settings:save', patch),
   setUiScale: (value) => invoke('ui:set-scale', value),
 

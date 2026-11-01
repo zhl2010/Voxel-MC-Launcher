@@ -47,6 +47,8 @@ const state = {
   loaderCache: new Map(),
   loaderRequests: new Map(),
   loaderRequestSeq: 0,
+  // True while a loader is being installed into an independent version instance.
+  installingLoader: false,
   saveTimer: null,
   saving: false,
   verifying: false,
@@ -1106,11 +1108,11 @@ function selectVersion(id, { scroll = true } = {}) {
   if (!version) return
 
   state.pendingVersion = id
+  // Independent-instance model: an official version is the vanilla instance itself, a local
+  // instance carries its own loader. There is no "temporarily attach a loader" state any more.
   state.pendingLoader = version.local
     ? version.loader || 'vanilla'
-    : id === state.settings.version
-      ? state.settings.loader
-      : 'vanilla'
+    : 'vanilla'
   // Only the applied version remembers an explicitly picked loader build.
   state.pendingLoaderVersion = {}
   state.loaderHistoryOpen = new Set()
@@ -1202,7 +1204,7 @@ async function loadPendingLoaders() {
   // Versions no loader supports still get a local "vanilla only" answer, so no metadata request is
   // sent for ancient snapshots such as rd-132211.
   const support = loaderSupportFor(mc, version)
-  dom.loaderHint.textContent = '自动选择最新稳定版'
+  dom.loaderHint.textContent = '安装加载器会生成一个独立的版本（与 PCL / HMCL 一致），原版直接使用该版本本身'
   const requestId = ++state.loaderRequestSeq
 
   if (!support.fabric && !support.quilt && !support.forge && !support.neoforge) {
@@ -1311,6 +1313,36 @@ function vanillaOption(mcVersion) {
   }
 }
 
+/**
+ * Install a loader as an independent version instance (PCL/HMCL model). After it succeeds the new
+ * instance appears in the version list and becomes the pending selection.
+ */
+async function installLoaderInstance(mc, loader, loaderVersion) {
+  if (state.installingLoader) return
+  state.installingLoader = true
+  try {
+    const result = await invoke(
+      api.installLoader({ gameVersion: mc, loader, loaderVersion: loaderVersion || '' })
+    )
+    if (result.alreadyInstalled) {
+      toast(`独立版本 ${result.id} 已安装`, 'info')
+    } else {
+      toast(`已安装独立版本 ${result.id}${result.librariesDownloaded ? `（下载 ${result.librariesDownloaded} 个加载器库）` : ''}`, 'success')
+    }
+    appendLog('INFO', `已安装独立版本 ${result.id}（${loader} ${result.loaderVersion}）`)
+    await loadVersions(true)
+    if (state.versions.some((item) => item.id === result.id)) {
+      state.pendingVersion = result.id
+      selectVersion(result.id, { scroll: true })
+    }
+  } catch (error) {
+    appendLog('ERROR', `加载器安装失败：${error.message}`)
+    toast(error.message, 'error')
+  } finally {
+    state.installingLoader = false
+  }
+}
+
 function renderLoaderSkeletons() {
   const fragment = document.createDocumentFragment()
   for (let i = 0; i < 2; i++) {
@@ -1334,7 +1366,9 @@ function renderLoaderOptions(options, errorMessage = '') {
     button.type = 'button'
     button.className = 'loader-option'
     button.dataset.loader = type
-    if (state.pendingLoader === type) button.classList.add('selected')
+    // Only vanilla is "selected": picking Fabric/Quilt/Forge installs an independent version
+    // (PCL/HMCL model) instead of temporarily attaching a loader to this version.
+    if (type === 'vanilla' && state.pendingLoader === 'vanilla') button.classList.add('selected')
 
     const mark = document.createElement('span')
     mark.className = 'loader-option-mark'
@@ -1348,6 +1382,13 @@ function renderLoaderOptions(options, errorMessage = '') {
     const detail = document.createElement('small')
     detail.textContent = option.detail || (type === 'vanilla' ? '纯净原版' : option.version)
     copy.append(name, detail)
+
+    if (type !== 'vanilla') {
+      const action = document.createElement('em')
+      action.className = 'loader-install-action'
+      action.textContent = '安装为独立版本'
+      copy.append(action)
+    }
 
     // Loader builds other than the newest stable stay reachable through a history panel.
     const history = Array.isArray(option.versions) ? option.versions : []
@@ -1380,7 +1421,6 @@ function renderLoaderOptions(options, errorMessage = '') {
           if (entry.stable) item.title = '稳定版'
           item.addEventListener('click', (event) => {
             event.stopPropagation()
-            state.pendingLoader = type
             state.pendingLoaderVersion[type] = entry.version
             renderLoaderOptions(merged, errorMessage)
             updateVersionDetail()
@@ -1406,9 +1446,13 @@ function renderLoaderOptions(options, errorMessage = '') {
 
     button.append(mark, copy)
     button.addEventListener('click', () => {
-      state.pendingLoader = type
-      renderLoaderOptions(merged, errorMessage)
-      updateVersionDetail()
+      if (type === 'vanilla') {
+        state.pendingLoader = 'vanilla'
+        renderLoaderOptions(merged, errorMessage)
+        updateVersionDetail()
+        return
+      }
+      installLoaderInstance(mc, type, state.pendingLoaderVersion[type] || option.version || '')
     })
     fragment.append(button)
   }

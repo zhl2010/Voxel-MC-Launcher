@@ -104,6 +104,52 @@ export async function fetchText(
   throw new FetchError(lastError?.message || '网络请求失败', { url, cause: lastError })
 }
 
+/**
+ * Fetch a binary document (Buffer) with the same timeout/retry semantics as fetchJson. Used for
+ * small downloads (loader libraries) where the content is verified by sha1 afterwards.
+ */
+export async function fetchBuffer(
+  url,
+  { timeout = DEFAULT_TIMEOUT, retries = DEFAULT_RETRIES, headers = {} } = {}
+) {
+  let lastError
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeout)
+
+    try {
+      const response = await networkFetch(url, {
+        signal: controller.signal,
+        redirect: 'follow',
+        headers: {
+          Accept: 'application/octet-stream',
+          'User-Agent': 'VoxelLauncher/1.0 (+https://github.com/Electron-Minecraft-Launcher/EML-Lib)',
+          ...headers
+        }
+      })
+
+      if (!response.ok) {
+        throw new FetchError(`HTTP ${response.status}`, { url, status: response.status })
+      }
+
+      return Buffer.from(await response.arrayBuffer())
+    } catch (error) {
+      lastError = error
+      if (attempt < retries && !controller.signal.aborted) {
+        await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)))
+      }
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
+  if (lastError?.name === 'AbortError') {
+    throw new FetchError('请求超时', { url, cause: lastError })
+  }
+  throw new FetchError(lastError?.message || '网络请求失败', { url, cause: lastError })
+}
+
 export function friendlyError(error, fallback = '发生了未知错误') {
   const message = String(error?.message || error || fallback)
 

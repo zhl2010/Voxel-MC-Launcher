@@ -26,14 +26,17 @@ const SIZE_TOLERANCE_EXACT_LIMIT = 0
  * }}
  */
 export function verifyGameFiles(versionId, options) {
-  const { gameDir, manifest, assetIndex = null, categories = ['client', 'libraries', 'assets'] } = options || {}
+  const { gameDir, manifest, assetIndex = null, baseVersion = '', categories = ['client', 'libraries', 'assets'] } = options || {}
   const want = new Set(categories)
   const libraries = { ok: [], missing: [], corrupt: [] }
   const assets = { ok: 0, missing: [], corrupt: [], total: 0 }
   let clientJar = { state: 'skipped', path: '', expected: 0, actual: 0 }
 
   if (want.has('client')) {
-    const jarPath = path.join(gameDir, 'versions', versionId, `${versionId}.jar`)
+    // Loader instances (inheritsFrom, e.g. 1.21.1-fabric-0.20.1) keep the client jar in the
+    // vanilla folder; verifying against `versions/<id>/<id>.jar` would falsely report it missing.
+    const jarName = baseVersion || versionId
+    const jarPath = path.join(gameDir, 'versions', jarName, `${jarName}.jar`)
     const expected = Number(manifest?.downloads?.client?.size) || 0
     clientJar = checkFile(jarPath, expected)
     clientJar.path = jarPath

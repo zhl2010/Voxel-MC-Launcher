@@ -441,7 +441,7 @@
               <div class="detail-block">
                 <div class="detail-block-head">
                   <span>模组加载器</span>
-                  <small id="loaderHint">自动选择最新稳定版</small>
+                  <small id="loaderHint">安装加载器会生成一个独立的版本（与 PCL / HMCL 一致），原版直接使用该版本本身</small>
                 </div>
                 <div id="loaderOptions" class="loader-options">
                   <div class="loader-skeleton"></div>
@@ -512,8 +512,8 @@
               </div>
               <div id="modResults" class="mod-results">
                 <div class="mods-empty">
-                  <strong>选择一个模组加载器</strong>
-                  <span>模组需要 Fabric、Quilt、Forge 或 NeoForge 才能运行。</span>
+                  <strong>当前版本没有模组加载器</strong>
+                  <span>请先在版本库中为原版版本安装加载器（Fabric / Quilt / Forge / NeoForge），安装后会生成一个独立的版本实例，再回到这里下载模组。</span>
                 </div>
               </div>
               <nav id="modPagination" class="mod-pagination" aria-label="模组分页" hidden></nav>
@@ -555,7 +555,7 @@
                   <span>下载的模组会显示在这里。</span>
                 </div>
               </div>
-              <p class="mods-note">模组下载到当前实例的 <code>mods</code> 目录，该目录由所有版本共享。安装前请确认版本和加载器匹配；前置文件需要自行安装，切换版本前请移除不兼容模组。</p>
+              <p class="mods-note">模组下载到当前版本实例的 <code>mods</code> 目录，每个版本实例（如 <code>1.21.1-fabric-0.16.9</code>）完全独立、互不影响。安装前请确认版本和加载器匹配；前置文件需要自行安装。</p>
             </aside>
           </div>
         </section>

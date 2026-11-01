@@ -9,6 +9,7 @@ import { VersionService } from './main/version-service.js'
 import { LoaderService } from './main/loader-service.js'
 import { GameService, GAME_ROOT_NAME, instanceDirFor } from './main/game-service.js'
 import { ModService } from './main/mod-service.js'
+import { LoaderInstallService } from './main/loader-install-service.js'
 import { SessionStore } from './main/session-store.js'
 import { SkinService } from './main/skin-service.js'
 import { configureNetwork } from './main/network.js'
@@ -29,6 +30,7 @@ let versions = null
 let loaders = null
 let game = null
 let mods = null
+let loaderInstaller = null
 let gameDir = null
 // Version id of the verification currently running (`''` when idle).
 let verifyingVersionId = ''
@@ -355,6 +357,16 @@ function registerIpc() {
 
   handle('versions:list', async (force = false) => versions.getVersions({ force: Boolean(force) }))
 
+  // Install a loader as an independent PCL/HMCL-style version instance (Fabric / Quilt).
+  handle('loader:install', async (payload) => {
+    const request = payload || {}
+    return loaderInstaller.install({
+      gameVersion: String(request.gameVersion || ''),
+      loader: String(request.loader || ''),
+      loaderVersion: String(request.loaderVersion || '')
+    })
+  })
+
   handle('mods:search', async (payload) => mods.search(payload || {}))
   handle('mods:install', async (payload) => {
     const request = payload || {}
@@ -596,6 +608,7 @@ async function start() {
   versions.init(userData)
   loaders = new LoaderService()
   mods = new ModService(gameDir)
+  loaderInstaller = new LoaderInstallService(gameDir, versions, loaders)
   mods.setInstanceDir(instanceDirFor(store.getSettings(), gameDir))
   game = new GameService({
     getWindow: () => mainWindow,

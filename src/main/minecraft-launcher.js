@@ -35,7 +35,8 @@ export function buildLaunchArguments({
   settings,
   agentDirectory,
   assetsIndex = '',
-  instanceDir = ''
+  instanceDir = '',
+  baseVersion = ''
 }) {
   // With version isolation the game runs with `--gameDir` pointing at the instance folder
   // (`versions/<id>`) while libraries and assets stay in the shared root.
@@ -83,12 +84,14 @@ export function buildLaunchArguments({
     classpath.push(artifact.path)
   }
 
-  // The client jar must be the last classpath entry. Its name comes from the version id (or the
-  // explicit `jar` / `clientVersion` field) — never from the asset index id.
-  const clientJar = path.join(gameDir, 'versions', id, `${id}.jar`)
-  const jarName = manifest.jar || manifest.clientVersion || id
+  // The client jar must be the last classpath entry. Its name comes from the base version (the
+  // folder that owns the jar/json): for loader instances (`inheritsFrom`) the client jar lives in
+  // the vanilla folder, e.g. `versions/1.21.1/1.21.1.jar` for id `1.21.1-fabric-0.16.9` — never
+  // from the asset index id.
+  const jarName = manifest.jar || baseVersion || id
+  const clientJar = path.join(gameDir, 'versions', jarName, `${jarName}.jar`)
   const candidates = [clientJar]
-  if (jarName !== id) candidates.push(path.join(gameDir, 'versions', jarName, `${jarName}.jar`))
+  if (jarName !== id) candidates.push(path.join(gameDir, 'versions', id, `${id}.jar`))
   const resolvedJar = candidates.find((candidate) => fs.existsSync(candidate)) || clientJar
   if (fs.existsSync(resolvedJar)) classpath.push(resolvedJar)
   else missing.push(path.basename(resolvedJar))
