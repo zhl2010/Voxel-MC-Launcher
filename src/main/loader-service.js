@@ -107,14 +107,14 @@ export class LoaderService {
     return options
   }
 
-  /** Resolve to `null` after `LOOKUP_TIMEOUT` so a slow mirror never holds the picker open. */
-  withTimeout(promise) {
+  /** Resolve to `null` after `timeout` ms so a slow mirror never holds the picker open. */
+  withTimeout(promise, timeout = LOOKUP_TIMEOUT) {
     if (!promise) return Promise.resolve(null)
     let timer
-    const timeout = new Promise((resolve) => {
-      timer = setTimeout(() => resolve(null), LOOKUP_TIMEOUT)
+    const timeoutPromise = new Promise((resolve) => {
+      timer = setTimeout(() => resolve(null), timeout)
     })
-    return Promise.race([promise.catch(() => null), timeout]).finally(() => clearTimeout(timer))
+    return Promise.race([promise.catch(() => null), timeoutPromise]).finally(() => clearTimeout(timer))
   }
 
   async resolveFabric(mcVersion) {
@@ -202,9 +202,10 @@ export class LoaderService {
     }
 
     // Promotions only carry recommended/latest and lag behind for some game versions; the Maven
-    // metadata lists every build (still capped by the 2 s lookup timeout).
+    // metadata lists every build. The 8 s window is for the install path (resolve()): the UI path
+    // is still capped by the 2 s outer race in resolveAll.
     if (history.length < 2) {
-      const extra = await this.withTimeout(this.resolveForgeMavenHistory(mcVersion))
+      const extra = await this.withTimeout(this.resolveForgeMavenHistory(mcVersion), 8_000)
       for (const entry of extra || []) {
         const stripped = entry.version.replace(`${mcVersion}-`, '')
         if (seen.has(stripped)) continue
@@ -283,27 +284,33 @@ export class LoaderService {
       return { type: 'vanilla', version: mcVersion }
     }
 
-    // An explicitly chosen build (older loader version) wins over the newest stable one.
+    // The install path must not be capped by the 2 s UI race: resolving the newest stable build
+    // (or validating an explicit older build) happens once per install, so each resolver gets its
+    // own window. resolveFabric/resolveQuilt/resolveForge/resolveNeoForge already bound themselves.
+    const resolver = {
+      fabric: 'resolveFabric',
+      quilt: 'resolveQuilt',
+      forge: 'resolveForge',
+      neoforge: 'resolveNeoForge'
+    }[loaderType]
+    if (!resolver) throw new Error(`未知的加载器：${loaderType}`)
+
     if (preferredVersion) {
-      const options = await this.getOptions(mcVersion).catch(() => null)
-      const known = options?.[loaderType]?.versions || []
-      if (!known.length || known.some((item) => item.version === preferredVersion)) {
+      const detail = await this[resolver](mcVersion).catch(() => null)
+      if (detail?.versions?.some((item) => item.version === preferredVersion)) {
         return { type: loaderType, version: preferredVersion }
       }
-    }
-
-    let options = await this.getOptions(mcVersion)
-    if (!options[loaderType]) {
-      options = await this.getOptions(mcVersion, { force: true })
-    }
-
-    const selected = options[loaderType]
-    if (!selected) {
+      if (detail?.version) return { type: loaderType, version: detail.version }
       const names = { fabric: 'Fabric', quilt: 'Quilt', forge: 'Forge', neoforge: 'NeoForge' }
       throw new Error(`${names[loaderType] || loaderType} 暂不支持 Minecraft ${mcVersion}，请选择其他加载器。`)
     }
 
-    return { type: selected.type, version: selected.version }
+    const detail = await this[resolver](mcVersion).catch(() => null)
+    if (!detail?.version) {
+      const names = { fabric: 'Fabric', quilt: 'Quilt', forge: 'Forge', neoforge: 'NeoForge' }
+      throw new Error(`${names[loaderType] || loaderType} 暂不支持 Minecraft ${mcVersion}，请选择其他加载器。`)
+    }
+    return { type: detail.type, version: detail.version }
   }
 }
 
