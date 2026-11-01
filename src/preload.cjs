@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('voxel', {
   loginYggdrasil: (credentials) => invoke('auth:yggdrasil', credentials),
   logout: () => invoke('auth:logout'),
   getSkin: () => invoke('skin:get'),
+  getAccountFace: () => invoke('skin:face'),
   uploadSkin: () => invoke('skin:upload'),
   clearSkin: () => invoke('skin:clear'),
 

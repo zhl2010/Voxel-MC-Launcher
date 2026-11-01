@@ -6252,6 +6252,54 @@ html {
   padding-right: 4px;
 }
 
+.mod-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.mod-page-btn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--panel-soft);
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 0.8125rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.mod-page-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--panel);
+}
+
+.mod-page-btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: inset 0 -3px 0 #3b82f6;
+}
+
+.mod-page-btn:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.mod-page-ellipsis {
+  color: var(--muted);
+  padding: 0 2px;
+  font-size: 0.8125rem;
+}
+
 .mod-card {
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr) auto;

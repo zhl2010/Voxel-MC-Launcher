@@ -1,26 +1,26 @@
 {
-  "name": "voxel-launcher",
-  "productName": "Voxel Launcher",
-  "version": "1.0.0",
-  "description": "A polished Minecraft Java Edition launcher built with Electron, HTML and eml-lib.",
-  "type": "module",
-  "main": "src/main.js",
-  "private": true,
-  "author": "Voxel Launcher contributors",
-  "license": "MIT",
-  "scripts": {
-    "start": "node scripts/start.mjs",
-    "dev": "node scripts/start.mjs --dev",
-    "devtools": "node scripts/start.mjs --dev --devtools"
-  },
-  "dependencies": {
-    "eml-lib": "^2.7.4",
-    "undici": "^7.30.1"
-  },
-  "devDependencies": {
-    "electron": "^45.2.1"
-  },
-  "engines": {
-    "node": ">=22.12.0"
-  }
+    "name":  "voxel-launcher",
+    "productName":  "Voxel Launcher",
+    "version":  "1.1.0-beta.1",
+    "description":  "A polished Minecraft Java Edition launcher built with Electron, HTML and eml-lib.",
+    "type":  "module",
+    "main":  "src/main.js",
+    "private":  true,
+    "author":  "Voxel Launcher contributors",
+    "license":  "MIT",
+    "scripts":  {
+                    "start":  "node scripts/start.mjs",
+                    "dev":  "node scripts/start.mjs --dev",
+                    "devtools":  "node scripts/start.mjs --dev --devtools"
+                },
+    "dependencies":  {
+                         "eml-lib":  "^2.7.4",
+                         "undici":  "^7.30.1"
+                     },
+    "devDependencies":  {
+                            "electron":  "^45.2.1"
+                        },
+    "engines":  {
+                    "node":  "\u003e=22.12.0"
+                }
 }

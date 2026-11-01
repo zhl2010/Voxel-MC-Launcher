@@ -447,6 +447,13 @@ function registerIpc() {
     if (!account) return ''
     return skinService.getSkinDataUrl(account)
   })
+  // Cropped online player face (Microsoft / Yggdrasil session server); falls back to the built-in
+  // Steve/Alex face for players without a skin.
+  handle('skin:face', async () => {
+    const account = game.getAccount()
+    if (!account) return ''
+    return (await skinService.getAccountFaceDataUrl(account)) || (await skinService.getDefaultFaceDataUrl(account))
+  })
   handle('skin:upload', async () => {
     const account = game.getAccount()
     if (!account) throw new Error('请先登录离线账户或正版账户后才能上传皮肤。')
@@ -575,7 +582,7 @@ async function start() {
   store.init(userData)
   const sessions = new SessionStore()
   sessions.init(userData)
-  skinService = new SkinService(() => userData)
+  skinService = new SkinService(() => userData, path.join(__dirname, '..', 'assets'))
   applyNetworkSettings(store.getSettings())
 
   defaultGameDir = resolveGameDir()

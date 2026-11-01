@@ -4,7 +4,7 @@ const PAGE_TITLES = {
   home: '游戏大厅',
   versions: '版本库',
   mods: '模组工坊',
-  settings: '启动设置',
+  settings: '设置',
   logs: '运行日志'
 }
 
@@ -86,6 +86,7 @@ const state = {
     loadedKey: '',
     error: '',
     requestSeq: 0,
+    page: 1,
     installed: [],
     installedLoading: false,
     // projectId -> data URL ('' when the project has no icon)
@@ -99,6 +100,9 @@ const dom = {}
 const avatarCache = new Map()
 // Uploaded skin (data URL) shared by every avatar; empty when the account uses the pixel avatar.
 state.skinDataUrl = state.skinDataUrl || ''
+// Face of the online player (Microsoft / Yggdrasil) fetched by the main process; empty when the
+// account has no accessible skin or the player is offline.
+state.onlineFace = ''
 const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric',
   month: '2-digit',
@@ -180,7 +184,7 @@ function cacheDom() {
     'loaderOptions', 'loaderHint', 'applyVersion', 'verifyVersion', 'openVersionFolder',
     'deleteVersion', 'openVersionsFolder',
     'modsRefresh', 'modSearchInput', 'modSearchBtn', 'modsTarget', 'modsTargetLabel',
-    'modsCompat', 'modsCompatTitle', 'modsCompatText', 'modsResultMeta', 'modResults',
+    'modsCompat', 'modsCompatTitle', 'modsCompatText', 'modsResultMeta', 'modResults', 'modPagination',
     'modsGameVersion', 'modsLoaderName', 'modsFolderPath', 'modsDirHint', 'chooseModDir',
     'installedModsCount',
     'installedModsList',
@@ -1553,6 +1557,10 @@ function renderModsNoLoader(target) {
     ? `原版 Minecraft ${target.version} 不能加载模组。请前往版本库，为该版本选择 Fabric、Quilt、Forge 或 NeoForge。`
     : '请先在版本库中选定游戏版本和加载器，再回到模组工坊。'
   dom.modsResultMeta.textContent = '未启用模组加载器'
+  if (dom.modPagination) {
+    dom.modPagination.hidden = true
+    dom.modPagination.replaceChildren()
+  }
   const empty = createModsEmpty(title, detail)
   const action = document.createElement('button')
   action.type = 'button'
@@ -1602,6 +1610,7 @@ async function searchMods(query) {
     state.mods.total = Number(data.total) || 0
     state.mods.query = data.query || normalizedQuery
     state.mods.loadedKey = target.key
+    state.mods.page = 1
     state.mods.error = ''
     renderModResults(target)
   } catch (error) {
@@ -1609,6 +1618,10 @@ async function searchMods(query) {
     state.mods.error = error.message
     state.mods.results = []
     dom.modsResultMeta.textContent = 'MODRINTH 请求失败'
+    if (dom.modPagination) {
+      dom.modPagination.hidden = true
+      dom.modPagination.replaceChildren()
+    }
     const empty = createModsEmpty('无法获取模组列表', error.message)
     const retry = document.createElement('button')
     retry.type = 'button'
@@ -1627,6 +1640,10 @@ async function searchMods(query) {
 }
 
 function renderModSkeletons() {
+  if (dom.modPagination) {
+    dom.modPagination.hidden = true
+    dom.modPagination.replaceChildren()
+  }
   const fragment = document.createDocumentFragment()
   for (let i = 0; i < 4; i++) {
     const skeleton = document.createElement('div')
@@ -1638,10 +1655,14 @@ function renderModSkeletons() {
   dom.modResults.replaceChildren(fragment)
 }
 
+const MODS_PER_PAGE = 20
+
 function renderModResults(target) {
   const hits = state.mods.results
   if (!hits.length) {
     dom.modsResultMeta.textContent = '0 个兼容项目'
+    dom.modPagination.hidden = true
+    dom.modPagination.replaceChildren()
     dom.modResults.replaceChildren(
       createModsEmpty(
         '没有找到兼容模组',
@@ -1651,9 +1672,16 @@ function renderModResults(target) {
     return
   }
 
-  dom.modsResultMeta.textContent = `显示 ${hits.length} / ${state.mods.total} 个兼容项目`
+  const totalPages = Math.max(1, Math.ceil(hits.length / MODS_PER_PAGE))
+  const page = Math.min(Math.max(1, state.mods.page || 1), totalPages)
+  state.mods.page = page
+  const start = (page - 1) * MODS_PER_PAGE
+  const slice = hits.slice(start, start + MODS_PER_PAGE)
+  const end = Math.min(start + MODS_PER_PAGE, hits.length)
+
+  dom.modsResultMeta.textContent = `显示 ${start + 1}–${end} / ${state.mods.total} 个兼容项目`
   const fragment = document.createDocumentFragment()
-  for (const mod of hits) {
+  for (const mod of slice) {
     const card = document.createElement('article')
     card.className = 'mod-card'
 
@@ -1727,6 +1755,59 @@ function renderModResults(target) {
     fragment.append(card)
   }
   dom.modResults.replaceChildren(fragment)
+  renderModPagination(totalPages, page)
+}
+
+/** Page-number buttons like "1 2 3 4 >" with the current page underlined. Always visible when a
+ * mod list is shown; a single page renders as "‹ 1 ›" with both arrows disabled. */
+function renderModPagination(totalPages, current) {
+  const nav = dom.modPagination
+  if (!nav) return
+  const fragment = document.createDocumentFragment()
+  const makeButton = (label, page, disabled) => {
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'mod-page-btn'
+    if (page === current) button.classList.add('active')
+    if (disabled) {
+      button.disabled = true
+      button.classList.add('disabled')
+    }
+    button.textContent = label
+    if (!disabled && page !== current) {
+      button.addEventListener('click', () => {
+        state.mods.page = page
+        renderModResults(getModTarget())
+      })
+    }
+    return button
+  }
+  fragment.append(makeButton('‹', current - 1, current <= 1))
+  for (const item of modPageWindow(current, totalPages)) {
+    if (item === '…') {
+      const ellipsis = document.createElement('span')
+      ellipsis.className = 'mod-page-ellipsis'
+      ellipsis.textContent = '…'
+      fragment.append(ellipsis)
+    } else {
+      fragment.append(makeButton(String(item), item, false))
+    }
+  }
+  fragment.append(makeButton('>', current + 1, current >= totalPages))
+  nav.replaceChildren(fragment)
+}
+
+function modPageWindow(current, total) {
+  const wanted = new Set([1, 2, total - 1, total, current - 1, current, current + 1])
+  const pages = [...wanted].filter((page) => page >= 1 && page <= total).sort((a, b) => a - b)
+  const out = []
+  let last = 0
+  for (const page of pages) {
+    if (page - last > 1) out.push('…')
+    out.push(page)
+    last = page
+  }
+  return out
 }
 
 function modInitials(title) {
@@ -2445,7 +2526,9 @@ function handleLogout() {
     .then(() => {
       state.account = null
       state.settings.username = ''
+      state.onlineFace = ''
       renderAccount()
+      loadSkin().catch(() => {})
       updateLaunchAvailability()
       toast('已退出当前账户。', 'success')
     })
@@ -2606,6 +2689,7 @@ async function handleOfflineLogin() {
     state.account = await invoke(api.loginOffline(username))
     state.settings.username = username
     renderAccount()
+    loadSkin().catch(() => {})
     closeAccountModal(true)
     toast(`已登录离线账户 ${state.account.name}`, 'success')
     appendLog('INFO', `已切换到离线账户 ${state.account.name}。`)
@@ -2623,6 +2707,7 @@ async function handleMicrosoftLogin() {
     state.account = await invoke(api.loginMicrosoft())
     state.settings.username = ''
     renderAccount()
+    loadSkin().catch(() => {})
     closeAccountModal(true)
     toast(`欢迎回来，${state.account.name}`, 'success')
     appendLog('INFO', `已通过 Microsoft 登录：${state.account.name}。`)
@@ -2650,6 +2735,7 @@ async function handleYggdrasilLogin() {
     state.settings.username = ''
     dom.yggdrasilPassword.value = ''
     renderAccount()
+    loadSkin().catch(() => {})
     closeAccountModal(true)
     const provider = accountServerLabel(state.account.server)
     toast(
@@ -2697,20 +2783,28 @@ function showLoginError(message) {
 
 function applyAvatar(element, seed) {
   if (!element) return
-  // A uploaded skin always wins over the generated pixel avatar.
+  // Uploaded skin always wins, then the online player face (Microsoft / Yggdrasil), then the
+  // generated pixel avatar.
   const key = String(seed || 'voxel-guest')
-  const skin = state.skinDataUrl
-  const dataUrl = skin || (avatarCache.has(key) ? avatarCache.get(key) : createAvatarDataUrl(key))
-  if (!skin && !avatarCache.has(key)) avatarCache.set(key, dataUrl)
+  const dataUrl =
+    state.skinDataUrl ||
+    state.onlineFace ||
+    (avatarCache.has(key) ? avatarCache.get(key) : createAvatarDataUrl(key))
+  if (!state.skinDataUrl && !state.onlineFace && !avatarCache.has(key)) avatarCache.set(key, dataUrl)
   element.style.backgroundImage = `url("${dataUrl}")`
 }
 
-/** Load the uploaded skin (if any) and refresh every avatar on screen. */
+/** Load the uploaded skin (if any) and the online player face, then refresh every avatar. */
 async function loadSkin() {
   try {
     state.skinDataUrl = (await invoke(api.getSkin())) || ''
   } catch {
     state.skinDataUrl = ''
+  }
+  try {
+    state.onlineFace = (await invoke(api.getAccountFace())) || ''
+  } catch {
+    state.onlineFace = ''
   }
   renderAccount()
   if (dom.clearSkin) dom.clearSkin.hidden = !state.skinDataUrl

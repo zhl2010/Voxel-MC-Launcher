@@ -178,7 +178,7 @@
           </button>
           <button class="nav-item" data-page="settings">
             <svg><use href="#i-sliders"></use></svg>
-            <span>启动设置</span>
+            <span>设置</span>
             <i class="nav-active-bar"></i>
           </button>
           <button class="nav-item" data-page="logs">
@@ -471,7 +471,6 @@
             <div>
               <p class="eyebrow"><span class="eyebrow-line"></span>MODRINTH / COMPATIBLE FILES</p>
               <h1 id="modsHeading">模组工坊</h1>
-              <p class="page-subtitle">搜索适配当前版本与加载器的模组，直接写入实例的 mods 文件夹。</p>
             </div>
             <div class="head-actions">
               <button id="modsRefresh" class="ghost-btn">
@@ -518,6 +517,7 @@
                   <span>模组需要 Fabric、Quilt、Forge 或 NeoForge 才能运行。</span>
                 </div>
               </div>
+              <nav id="modPagination" class="mod-pagination" aria-label="模组分页" hidden></nav>
             </section>
 
             <aside class="mod-side panel">
@@ -565,8 +565,7 @@
           <header class="page-head compact">
             <div>
               <p class="eyebrow"><span class="eyebrow-line"></span>LAUNCH OPTIONS</p>
-              <h1 id="settingsHeading">启动设置</h1>
-              <p class="page-subtitle">调整界面、内存、窗口与 Java 环境。所有更改都会自动保存。</p>
+              <h1 id="settingsHeading">设置</h1>
             </div>
             <div class="head-actions">
               <span id="saveState" class="save-state"><svg><use href="#i-check"></use></svg>已自动保存</span>
