@@ -109,6 +109,9 @@ function getEmlVersion() {
 }
 
 function appInfo() {
+  // The instance directory is where the selected version actually reads/writes saves, mods,
+  // resource packs, shader packs and logs (it equals gameDir when version isolation is off).
+  const instanceDir = game?.instanceDirFor(store.getSettings().version) || gameDir
   return {
     version: app.getVersion(),
     emlVersion: getEmlVersion(),
@@ -121,20 +124,19 @@ function appInfo() {
     defaultGameDir: defaultGameDir || resolveGameDir(),
     gameDirIsCustom: !samePath(gameDir, defaultGameDir || resolveGameDir()),
     versionsDir: path.join(gameDir, 'versions'),
-    modsDir: path.join(gameDir, 'mods'),
-    logsDir: path.join(gameDir, 'logs'),
-    logsPath: path.join(gameDir, 'logs', 'latest.log'),
-    crashReportsDir: path.join(gameDir, 'crash-reports'),
-    savesDir: path.join(gameDir, 'saves'),
-    resourcepacksDir: path.join(gameDir, 'resourcepacks'),
-    shaderpacksDir: path.join(gameDir, 'shaderpacks'),
+    modsDir: mods?.modsDir || path.join(gameDir, 'mods'),
+    logsDir: path.join(instanceDir, 'logs'),
+    logsPath: path.join(instanceDir, 'logs', 'latest.log'),
+    crashReportsDir: path.join(instanceDir, 'crash-reports'),
+    savesDir: path.join(instanceDir, 'saves'),
+    resourcepacksDir: path.join(instanceDir, 'resourcepacks'),
+    shaderpacksDir: path.join(instanceDir, 'shaderpacks'),
     userData: app.getPath('userData'),
     totalMemoryMB: Math.floor(os.totalmem() / 1024 / 1024),
     cpu: os.cpus()?.[0]?.model?.trim() || 'Unknown CPU',
     maximized: Boolean(mainWindow?.isMaximized()),
     // Where the selected version actually reads/writes mods (version isolation aware).
-    instanceDir: game?.instanceDirFor(store.getSettings().version) || gameDir,
-    modsDir: mods?.modsDir || path.join(gameDir, 'mods'),
+    instanceDir,
     versionIsolation: Boolean(store.getSettings().versionIsolation)
   }
 }
@@ -308,17 +310,20 @@ function syncModsInstance() {
 }
 
 async function openTarget(target) {
+  // With version isolation the game actually lives in versions/<id>, so every data subfolder
+  // that follows the game (saves, mods, resource packs, shader packs, logs) points there.
+  const instanceDir = game ? game.instanceDirFor(store.getSettings().version) : gameDir
   const targets = {
     game: gameDir,
     versions: path.join(gameDir, 'versions'),
     mods: mods?.modsDir || path.join(gameDir, 'mods'),
-    instance: game ? game.instanceDirFor(store.getSettings().version) : gameDir,
-    logs: path.join(gameDir, 'logs'),
-    'latest-log': path.join(gameDir, 'logs', 'latest.log'),
-    'crash-reports': path.join(gameDir, 'crash-reports'),
-    saves: path.join(gameDir, 'saves'),
-    resourcepacks: path.join(gameDir, 'resourcepacks'),
-    shaderpacks: path.join(gameDir, 'shaderpacks'),
+    instance: instanceDir,
+    logs: path.join(instanceDir, 'logs'),
+    'latest-log': path.join(instanceDir, 'logs', 'latest.log'),
+    'crash-reports': path.join(instanceDir, 'crash-reports'),
+    saves: path.join(instanceDir, 'saves'),
+    resourcepacks: path.join(instanceDir, 'resourcepacks'),
+    shaderpacks: path.join(instanceDir, 'shaderpacks'),
     userData: app.getPath('userData')
   }
   const destination = targets[target]
